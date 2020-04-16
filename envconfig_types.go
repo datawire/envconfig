@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -65,10 +66,12 @@ var envConfigTypes = map[reflect.Type]fieldTypeHandler{
 				if err != nil {
 					return nil, err
 				}
-				if !u.IsAbs() || u.Host == "" {
-					// Why do we need to check .IsAbs() _and_ .Host?  Because .IsAbs() returns true
-					// for any absolute URI; we need it to specifically be a URL, and to reject a
-					// URN.
+				isURL := strings.HasPrefix(u.String(), u.Scheme+"://") // as opposed to being a URN
+				if !u.IsAbs() || !isURL {
+					// Why do we need to check .IsAbs() _and_ isURL?  Because despite the
+					// name, the `net/url` package is used for any URI; which means it can
+					// be either a URL or a URN.  We need it to specifically be a URL, and
+					// to reject a URN.
 					//
 					// Otherwise, "host:port", would parse as an absolute opaque URN, with
 					// "scheme=host" and "opaque=port".
