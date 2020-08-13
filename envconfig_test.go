@@ -52,3 +52,26 @@ func TestAbsoluteRL(t *testing.T) {
 		})
 	}
 }
+
+func TestRecursive(t *testing.T) {
+	var config struct {
+		ParentThing string `env:"PARENT_THING,parser=nonempty-string"`
+		Child       struct {
+			Thing1 string `env:"CHILD_THING1,parser=nonempty-string"`
+			Thing2 string `env:"CHILD_THING2,parser=nonempty-string"`
+		}
+	}
+	parser, err := envconfig.GenerateParser(reflect.TypeOf(config))
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Setenv("PARENT_THING", "foo")
+	os.Setenv("CHILD_THING1", "bar")
+	os.Setenv("CHILD_THING2", "baz")
+	warn, fatal := parser.ParseFromEnv(&config)
+	assert.Equal(t, len(warn), 0, "There should be no warnings")
+	assert.Equal(t, len(fatal), 0, "There should be no errors")
+	assert.Equal(t, config.ParentThing, "foo")
+	assert.Equal(t, config.Child.Thing1, "bar")
+	assert.Equal(t, config.Child.Thing2, "baz")
+}

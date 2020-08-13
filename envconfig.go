@@ -94,7 +94,7 @@ func (h fieldTypeHandler) parserNames() []string {
 
 type StructParser struct {
 	structType    reflect.Type
-	fieldHandlers []func(structValue reflect.Value) (warn, fatal error)
+	fieldHandlers []func(structValue reflect.Value) (warn, fatal []error)
 }
 
 // generateParser takes a struct (not a struct pointer) type with `"env:..."` tags on each of its fields, and returns a
@@ -106,7 +106,7 @@ func GenerateParser(structInfo reflect.Type) (StructParser, error) {
 
 	ret := StructParser{
 		structType:    structInfo,
-		fieldHandlers: make([]func(structValue reflect.Value) (warn, fatal error), 0, structInfo.NumField()),
+		fieldHandlers: make([]func(structValue reflect.Value) (warn, fatal []error), 0, structInfo.NumField()),
 	}
 
 	seen := make(map[string]reflect.Type, structInfo.NumField())
@@ -116,7 +116,22 @@ func GenerateParser(structInfo reflect.Type) (StructParser, error) {
 
 		typeHandler, typeHandlerOK := envConfigTypes[fieldInfo.Type] // envConfigTypes is set in envconfig_types.go
 		if !typeHandlerOK {
-			return StructParser{}, errors.Errorf("struct field %q: unsupported type %s", fieldInfo.Name, fieldInfo.Type)
+			if fieldInfo.Type.Kind() != reflect.Struct {
+				return StructParser{}, errors.Errorf("struct field %q: unsupported type %s", fieldInfo.Name, fieldInfo.Type)
+			}
+			if fieldInfo.Tag.Get("env") != "" {
+				return StructParser{}, errors.Errorf("struct field %q: unsupported type %s; cannot have tag on nested struct", fieldInfo.Name, fieldInfo.Type)
+			}
+			// recurse
+			subhandler, err := GenerateParser(fieldInfo.Type)
+			if err != nil {
+				return StructParser{}, errors.Wrapf(err, "struct field %q", fieldInfo.Name)
+			}
+			ret.fieldHandlers = append(ret.fieldHandlers, func(parentStructValue reflect.Value) (warn, fatal []error) {
+				return subhandler.ParseFromEnv(parentStructValue.Field(i).Addr().Interface())
+			})
+			seen[fieldInfo.Name] = fieldInfo.Type
+			continue
 		}
 		validTagOptions := []envTagOption{
 			{
@@ -197,8 +212,8 @@ func GenerateParser(structInfo reflect.Type) (StructParser, error) {
 	return ret, nil
 }
 
-func generateFieldHandler(i int, tag envTag, typeHandler fieldTypeHandler) func(structValue reflect.Value) (warn, fatal error) {
-	return func(structValue reflect.Value) (warn, fatal error) {
+func generateFieldHandler(i int, tag envTag, typeHandler fieldTypeHandler) func(structValue reflect.Value) (warn, fatal []error) {
+	return func(structValue reflect.Value) (warn, fatal []error) {
 		var defValue interface{}
 		if defStr, haveDef := tag.Options["default"]; haveDef {
 			var err error
@@ -217,7 +232,7 @@ func generateFieldHandler(i int, tag envTag, typeHandler fieldTypeHandler) func(
 			if err != nil {
 				if defValue == nil {
 					// fatal
-					return nil, errors.Wrapf(err, "invalid %s (aborting)", tag.Name)
+					return nil, []error{errors.Wrapf(err, "invalid %s (aborting)", tag.Name)}
 				} else {
 					// fall back to default
 					val = nil
@@ -226,9 +241,9 @@ func generateFieldHandler(i int, tag envTag, typeHandler fieldTypeHandler) func(
 						// unset.  We don't do a str!="" check above, because some parsers
 						// accept an empty string.
 						if defStr, haveDefStr := tag.Options["default"]; haveDefStr {
-							warn = errors.Wrapf(err, "invalid %s (falling back to default %q)", tag.Name, defStr)
+							warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default %q)", tag.Name, defStr))
 						} else {
-							warn = errors.Wrapf(err, "invalid %s (falling back to default)", tag.Name)
+							warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default)", tag.Name))
 						}
 					}
 				}
@@ -238,7 +253,7 @@ func generateFieldHandler(i int, tag envTag, typeHandler fieldTypeHandler) func(
 		}
 		if val == nil {
 			if defValue == nil {
-				return nil, errors.Wrapf(ErrorNotSet, "invalid %s (aborting)", tag.Name)
+				return nil, []error{errors.Wrapf(ErrorNotSet, "invalid %s (aborting)", tag.Name)}
 			}
 			val = defValue
 		}
@@ -261,12 +276,8 @@ func (p StructParser) ParseFromEnv(structPtr interface{}) (warn, fatal []error) 
 
 	for _, fieldHandler := range p.fieldHandlers {
 		_warn, _fatal := fieldHandler(structValue)
-		if _warn != nil {
-			warn = append(warn, _warn)
-		}
-		if _fatal != nil {
-			fatal = append(fatal, _fatal)
-		}
+		warn = append(warn, _warn...)
+		fatal = append(fatal, _fatal...)
 	}
 
 	return warn, fatal
