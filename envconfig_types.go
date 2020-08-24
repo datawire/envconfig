@@ -11,6 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// If you add something to this, please add to the
+// TestSmokeTestAllParsers test.
 var envConfigTypes = map[reflect.Type]fieldTypeHandler{
 
 	// string
@@ -45,9 +47,12 @@ var envConfigTypes = map[reflect.Type]fieldTypeHandler{
 	// int
 	reflect.TypeOf(int(0)): {
 		Parsers: map[string]func(string) (interface{}, error){
-			"strconv.ParseInt": func(str string) (interface{}, error) { return strconv.ParseInt(str, 10, 0) },
+			"strconv.ParseInt": func(str string) (interface{}, error) {
+				i64, err := strconv.ParseInt(str, 10, 0)
+				return int(i64), err
+			},
 		},
-		Setter: func(dst reflect.Value, src interface{}) { dst.SetInt(src.(int64)) },
+		Setter: func(dst reflect.Value, src interface{}) { dst.SetInt(int64(src.(int))) },
 	},
 
 	// int64

@@ -1,18 +1,20 @@
 package envconfig_test
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/datawire/apro/cmd/amb-sidecar/types/internal/envconfig"
 )
 
-func TestAbsoluteRL(t *testing.T) {
+func TestAbsoluteURL(t *testing.T) {
 	var config struct {
 		U *url.URL `env:"CONFIG_URL,parser=absolute-URL"`
 	}
@@ -74,4 +76,99 @@ func TestRecursive(t *testing.T) {
 	assert.Equal(t, config.ParentThing, "foo")
 	assert.Equal(t, config.Child.Thing1, "bar")
 	assert.Equal(t, config.Child.Thing2, "baz")
+}
+
+func TestSmokeTestAllParsers(t *testing.T) {
+	type testcase struct {
+		Object   interface{}
+		EnvVar   string
+		Expected string
+	}
+	// This isn't going in to any depth on any of the types; just
+	// checking that the parser and setter don't panic.
+	tests := map[string]testcase{
+		"string.nonempty-string": testcase{
+			Object: &struct {
+				Value string `env:"VALUE,parser=nonempty-string"`
+			}{},
+			EnvVar:   "str",
+			Expected: `&{str}`,
+		},
+		"string.possibly-empty-string": testcase{
+			Object: &struct {
+				Value string `env:"VALUE,parser=possibly-empty-string"`
+			}{},
+			EnvVar:   "",
+			Expected: `&{}`,
+		},
+		"string.logrus.ParseLevel": testcase{
+			Object: &struct {
+				Value string `env:"VALUE,parser=logrus.ParseLevel"`
+			}{},
+			EnvVar:   "info",
+			Expected: `&{info}`,
+		},
+		"bool.empty/nonempty": testcase{
+			Object: &struct {
+				Value bool `env:"VALUE,parser=empty/nonempty"`
+			}{},
+			EnvVar:   "false",
+			Expected: `&{true}`,
+		},
+		"bool.strconv.ParseBool": testcase{
+			Object: &struct {
+				Value bool `env:"VALUE,parser=strconv.ParseBool"`
+			}{},
+			EnvVar:   "false",
+			Expected: `&{false}`,
+		},
+		"int.strconv.ParseInt": testcase{
+			Object: &struct {
+				Value int `env:"VALUE,parser=strconv.ParseInt"`
+			}{},
+			EnvVar:   "123",
+			Expected: `&{123}`,
+		},
+		"int64.strconv.ParseInt": testcase{
+			Object: &struct {
+				Value int64 `env:"VALUE,parser=strconv.ParseInt"`
+			}{},
+			EnvVar:   "123",
+			Expected: `&{123}`,
+		},
+		"URL.absolute-URL": testcase{
+			Object: &struct {
+				Value *url.URL `env:"VALUE,parser=absolute-URL"`
+			}{},
+			EnvVar:   "https://example.com/",
+			Expected: `&{https://example.com/}`,
+		},
+		"Duration.integer-seconds": testcase{
+			Object: &struct {
+				Value time.Duration `env:"VALUE,parser=integer-seconds"`
+			}{},
+			EnvVar:   "182",
+			Expected: `&{3m2s}`,
+		},
+		"Duration.time.ParseDuration": testcase{
+			Object: &struct {
+				Value time.Duration `env:"VALUE,parser=time.ParseDuration"`
+			}{},
+			EnvVar:   "3m2s",
+			Expected: `&{3m2s}`,
+		},
+	}
+	for testname, testinfo := range tests {
+		t.Run(testname, func(t *testing.T) {
+			parser, err := envconfig.GenerateParser(reflect.TypeOf(testinfo.Object).Elem())
+			if err != nil {
+				t.Fatal(err)
+			}
+			os.Setenv("VALUE", testinfo.EnvVar)
+			warn, fatal := parser.ParseFromEnv(testinfo.Object)
+			assert.Equal(t, len(warn), 0, "There should be no warnings")
+			assert.Equal(t, len(fatal), 0, "There should be no errors")
+			assert.Equal(t, testinfo.Expected, fmt.Sprintf("%v", testinfo.Object))
+		})
+	}
 }

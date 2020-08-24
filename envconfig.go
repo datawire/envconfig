@@ -257,6 +257,14 @@ func generateFieldHandler(i int, tag envTag, typeHandler fieldTypeHandler) func(
 			}
 			val = defValue
 		}
+		if reflect.TypeOf(val) != structValue.Type().Field(i).Type {
+			// This indicates a bug in a parser in envconfig_types.go.  Explicitly (eagerly) check for it
+			// here, instead of waiting for an implicit (lacy) check when something references it with
+			// `defaultFrom`.  The detection being so far from the source would make things hard to debug.
+			panic(errors.Errorf("this should not happen; envconfig_types.go:%s:%s() returned the wrong type",
+				structValue.Type().Field(i).Type,
+				tag.Options["parser"]))
+		}
 		typeHandler.Setter(structValue.Field(i), val)
 		return warn, nil
 	}
