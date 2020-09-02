@@ -87,70 +87,70 @@ func TestSmokeTestAllParsers(t *testing.T) {
 	// This isn't going in to any depth on any of the types; just
 	// checking that the parser and setter don't panic.
 	tests := map[string]testcase{
-		"string.nonempty-string": testcase{
+		"string.nonempty-string": {
 			Object: &struct {
 				Value string `env:"VALUE,parser=nonempty-string"`
 			}{},
 			EnvVar:   "str",
 			Expected: `&{str}`,
 		},
-		"string.possibly-empty-string": testcase{
+		"string.possibly-empty-string": {
 			Object: &struct {
 				Value string `env:"VALUE,parser=possibly-empty-string"`
 			}{},
 			EnvVar:   "",
 			Expected: `&{}`,
 		},
-		"string.logrus.ParseLevel": testcase{
+		"string.logrus.ParseLevel": {
 			Object: &struct {
 				Value string `env:"VALUE,parser=logrus.ParseLevel"`
 			}{},
 			EnvVar:   "info",
 			Expected: `&{info}`,
 		},
-		"bool.empty/nonempty": testcase{
+		"bool.empty/nonempty": {
 			Object: &struct {
 				Value bool `env:"VALUE,parser=empty/nonempty"`
 			}{},
 			EnvVar:   "false",
 			Expected: `&{true}`,
 		},
-		"bool.strconv.ParseBool": testcase{
+		"bool.strconv.ParseBool": {
 			Object: &struct {
 				Value bool `env:"VALUE,parser=strconv.ParseBool"`
 			}{},
 			EnvVar:   "false",
 			Expected: `&{false}`,
 		},
-		"int.strconv.ParseInt": testcase{
+		"int.strconv.ParseInt": {
 			Object: &struct {
 				Value int `env:"VALUE,parser=strconv.ParseInt"`
 			}{},
 			EnvVar:   "123",
 			Expected: `&{123}`,
 		},
-		"int64.strconv.ParseInt": testcase{
+		"int64.strconv.ParseInt": {
 			Object: &struct {
 				Value int64 `env:"VALUE,parser=strconv.ParseInt"`
 			}{},
 			EnvVar:   "123",
 			Expected: `&{123}`,
 		},
-		"URL.absolute-URL": testcase{
+		"URL.absolute-URL": {
 			Object: &struct {
 				Value *url.URL `env:"VALUE,parser=absolute-URL"`
 			}{},
 			EnvVar:   "https://example.com/",
 			Expected: `&{https://example.com/}`,
 		},
-		"Duration.integer-seconds": testcase{
+		"Duration.integer-seconds": {
 			Object: &struct {
 				Value time.Duration `env:"VALUE,parser=integer-seconds"`
 			}{},
 			EnvVar:   "182",
 			Expected: `&{3m2s}`,
 		},
-		"Duration.time.ParseDuration": testcase{
+		"Duration.time.ParseDuration": {
 			Object: &struct {
 				Value time.Duration `env:"VALUE,parser=time.ParseDuration"`
 			}{},
