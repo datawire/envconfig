@@ -63,6 +63,17 @@ var envConfigTypes = map[reflect.Type]fieldTypeHandler{
 		Setter: func(dst reflect.Value, src interface{}) { dst.SetInt(src.(int64)) },
 	},
 
+	// float32
+	reflect.TypeOf(float32(0)): {
+		Parsers: map[string]func(string) (interface{}, error){
+			"strconv.ParseFloat": func(str string) (interface{}, error) {
+				f, err := strconv.ParseFloat(str, 32)
+				return float32(f), err
+			},
+		},
+		Setter: func(dst reflect.Value, src interface{}) { dst.SetFloat(float64(src.(float32))) },
+	},
+
 	// *url.URL
 	reflect.TypeOf((*url.URL)(nil)): {
 		Parsers: map[string]func(string) (interface{}, error){
