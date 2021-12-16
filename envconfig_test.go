@@ -3,7 +3,6 @@ package envconfig_test
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"reflect"
 	"strconv"
 	"testing"
@@ -40,7 +39,7 @@ func TestAbsoluteURL(t *testing.T) {
 		tc := tc // capture loop variable
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			config.U = nil
-			os.Setenv("CONFIG_URL", tc.Input)
+			t.Setenv("CONFIG_URL", tc.Input)
 
 			warn, fatal := parser.ParseFromEnv(&config)
 
@@ -71,9 +70,9 @@ func TestRecursive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.Setenv("PARENT_THING", "foo")
-	os.Setenv("CHILD_THING1", "bar")
-	os.Setenv("CHILD_THING2", "baz")
+	t.Setenv("PARENT_THING", "foo")
+	t.Setenv("CHILD_THING1", "bar")
+	t.Setenv("CHILD_THING2", "baz")
 	warn, fatal := parser.ParseFromEnv(&config)
 	assert.Equal(t, len(warn), 0, "There should be no warnings")
 	assert.Equal(t, len(fatal), 0, "There should be no errors")
@@ -194,7 +193,7 @@ func TestSmokeTestAllParsers(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					os.Setenv("VALUE", testinfo.EnvVar)
+					t.Setenv("VALUE", testinfo.EnvVar)
 					warn, fatal := parser.ParseFromEnv(testinfo.Object)
 					assert.Equal(t, len(warn), 0, "There should be no warnings")
 					assert.Equal(t, len(fatal), 0, "There should be no errors")

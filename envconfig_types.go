@@ -11,8 +11,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// DefaultFieldTypeHandlers returns a map of the struct field type handlers that are used if a nil
+// map is passed to GenerateParser.  A new map is allocated on each call; mutating the map will not
+// change the defaults.
 func DefaultFieldTypeHandlers() map[reflect.Type]FieldTypeHandler {
 	// If you add something to this, please add to the TestSmokeTestAllParsers test.
+
+	//nolint:unparam,wrapcheck // These are all implemnting the same interface; can't remove any
+	// params.  The caller parser will wrap errors.
 	return map[reflect.Type]FieldTypeHandler{
 
 		// string

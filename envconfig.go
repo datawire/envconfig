@@ -1,10 +1,9 @@
-package envconfig
-
-// This file is a work-alike of github.com/kelseyhightower/envconfig, but:
+// Package envconfig is a work-alike of github.com/kelseyhightower/envconfig, but:
 //  - Has more more idiomatic "tag options" (comma separated things)
 //  - Supports falling back to a default if a provided value is invalid
 //  - Distinguishes between warnings and fatal errors
 //  - Allows setting different parse-modes ("parser"), without using weird types
+package envconfig
 
 import (
 	"os"
@@ -26,6 +25,7 @@ type envTagOption struct {
 	Validator func(string) error
 }
 
+// ErrNotSet is the error that gets wrapped when a "required" env-var is not set.
 var ErrNotSet = errors.New("is not set")
 
 func parseTagValue(str string, validOptions []envTagOption) (envTag, error) {
@@ -36,26 +36,26 @@ func parseTagValue(str string, validOptions []envTagOption) (envTag, error) {
 	}
 	for _, optionStr := range parts[1:] {
 		optionStr = strings.TrimSpace(optionStr)
-		kv := strings.SplitN(optionStr, "=", 2)
-		if len(kv) != 2 {
+		keyval := strings.SplitN(optionStr, "=", 2)
+		if len(keyval) != 2 {
 			return envTag{}, errors.Errorf("env option is not a key=value pair: %q", optionStr)
 		}
-		k := kv[0]
-		v := kv[1]
-		kOK := false
+		key := keyval[0]
+		val := keyval[1]
+		keyOK := false
 		for _, optionSpec := range validOptions {
-			if k == optionSpec.Name {
-				kOK = true
+			if key == optionSpec.Name {
+				keyOK = true
 				break
 			}
 		}
-		if !kOK {
-			return envTag{}, errors.Errorf("env option %q: unrecognized", k)
+		if !keyOK {
+			return envTag{}, errors.Errorf("env option %q: unrecognized", key)
 		}
-		if _, set := ret.Options[k]; set {
-			return envTag{}, errors.Errorf("env option %q: is set multiple times", k)
+		if _, set := ret.Options[key]; set {
+			return envTag{}, errors.Errorf("env option %q: is set multiple times", key)
 		}
-		ret.Options[k] = v
+		ret.Options[key] = val
 	}
 	for _, optionSpec := range validOptions {
 		_, haveVal := ret.Options[optionSpec.Name]
@@ -77,6 +77,7 @@ func stringPointer(str string) *string {
 	return &str
 }
 
+// A FieldTypeHandler adds support for a struct member type.
 type FieldTypeHandler struct {
 	Parsers map[string]func(string) (interface{}, error)
 	Setter  func(reflect.Value, interface{})
@@ -90,12 +91,13 @@ func (h FieldTypeHandler) parserNames() []string {
 	return ret
 }
 
+// A StructParser inspects and parses the os.Environ to set fields in a struct.
 type StructParser struct {
 	structType    reflect.Type
 	fieldHandlers []func(structValue reflect.Value) (warn, fatal []error)
 }
 
-// generateParser takes a struct (not a struct pointer) type with `"env:..."` tags on each of its fields, and returns a
+// GenerateParser takes a struct (not a struct pointer) type with `"env:..."` tags on each of its fields, and returns a
 // parser for it.
 func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]FieldTypeHandler) (StructParser, error) {
 	if structInfo.Kind() != reflect.Struct {
@@ -136,6 +138,7 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 			continue
 		}
 		validTagOptions := []envTagOption{
+			//nolint:wrapcheck // The caller parser will wrap errors.
 			{
 				Name:    "const",
 				Default: stringPointer("false"),
@@ -235,18 +238,17 @@ func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(
 				if defValue == nil {
 					// fatal
 					return nil, []error{errors.Wrapf(err, "invalid %s (aborting)", tag.Name)}
-				} else {
-					// fall back to default
-					val = nil
-					if tag.Name != "" && os.Getenv(tag.Name) != "" {
-						// Only print a warning if the env-var isn't ""; pretend like "" is
-						// unset.  We don't do a str!="" check above, because some parsers
-						// accept an empty string.
-						if defStr, haveDefStr := tag.Options["default"]; haveDefStr {
-							warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default %q)", tag.Name, defStr))
-						} else {
-							warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default)", tag.Name))
-						}
+				}
+				// fall back to default
+				val = nil
+				if tag.Name != "" && os.Getenv(tag.Name) != "" {
+					// Only print a warning if the env-var isn't ""; pretend like "" is
+					// unset.  We don't do a str!="" check above, because some parsers
+					// accept an empty string.
+					if defStr, haveDefStr := tag.Options["default"]; haveDefStr {
+						warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default %q)", tag.Name, defStr))
+					} else {
+						warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default)", tag.Name))
 					}
 				}
 			} else if val == nil {
