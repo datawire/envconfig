@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/datawire/apro/v2/cmd/amb-sidecar/types/internal/envconfig"
+	"github.com/datawire/envconfig"
 )
 
 func TestAbsoluteURL(t *testing.T) {
