@@ -22,7 +22,7 @@ func TestAbsoluteURL(t *testing.T) {
 	var config struct {
 		U *url.URL `env:"CONFIG_URL,parser=absolute-URL"`
 	}
-	parser, err := envconfig.GenerateParser(reflect.TypeOf(config))
+	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestRecursive(t *testing.T) {
 			Thing2 string `env:"CHILD_THING2,parser=nonempty-string"`
 		}
 	}
-	parser, err := envconfig.GenerateParser(reflect.TypeOf(config))
+	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestSmokeTestAllParsers(t *testing.T) {
 			for parserName, testinfo := range typetests {
 				testinfo := testinfo
 				t.Run(parserName, func(t *testing.T) {
-					parser, err := envconfig.GenerateParser(reflect.TypeOf(testinfo.Object).Elem())
+					parser, err := envconfig.GenerateParser(reflect.TypeOf(testinfo.Object).Elem(), nil)
 					if err != nil {
 						t.Fatal(err)
 					}

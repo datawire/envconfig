@@ -5,8 +5,6 @@ package envconfig
 //  - Supports falling back to a default if a provided value is invalid
 //  - Distinguishes between warnings and fatal errors
 //  - Allows setting different parse-modes ("parser"), without using weird types
-//
-// That said, it is less externally-pluggable: All extensions happen in <envconfig_types.go>.
 
 import (
 	"os"
@@ -99,12 +97,14 @@ type StructParser struct {
 
 // generateParser takes a struct (not a struct pointer) type with `"env:..."` tags on each of its fields, and returns a
 // parser for it.
-func GenerateParser(structInfo reflect.Type) (StructParser, error) {
+func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]FieldTypeHandler) (StructParser, error) {
 	if structInfo.Kind() != reflect.Struct {
 		return StructParser{}, errors.Errorf("structInfo does not describe a struct, it describes a %s", structInfo.Kind())
 	}
 
-	typeHandlers := DefaultFieldTypeHandlers()
+	if typeHandlers == nil {
+		typeHandlers = DefaultFieldTypeHandlers()
+	}
 
 	ret := StructParser{
 		structType:    structInfo,
@@ -125,7 +125,7 @@ func GenerateParser(structInfo reflect.Type) (StructParser, error) {
 				return StructParser{}, errors.Errorf("struct field %q: unsupported type %s; cannot have tag on nested struct", fieldInfo.Name, fieldInfo.Type)
 			}
 			// recurse
-			subhandler, err := GenerateParser(fieldInfo.Type)
+			subhandler, err := GenerateParser(fieldInfo.Type, typeHandlers)
 			if err != nil {
 				return StructParser{}, errors.Wrapf(err, "struct field %q", fieldInfo.Name)
 			}
