@@ -148,7 +148,16 @@ func TestSmokeTestAllParsers(t *testing.T) {
 				Expected: `&{123}`,
 			},
 		},
-		"URL": {
+		"float32": {
+			"strconv.ParseFloat": {
+				Object: &struct {
+					Value float32 `env:"VALUE,parser=strconv.ParseFloat"`
+				}{},
+				EnvVar:   "12.52",
+				Expected: "&{12.52}",
+			},
+		},
+		"*url.URL": {
 			"absolute-URL": {
 				Object: &struct {
 					Value *url.URL `env:"VALUE,parser=absolute-URL"`
@@ -157,7 +166,7 @@ func TestSmokeTestAllParsers(t *testing.T) {
 				Expected: `&{https://example.com/}`,
 			},
 		},
-		"Duration": {
+		"time.Duration": {
 			"integer-seconds": {
 				Object: &struct {
 					Value time.Duration `env:"VALUE,parser=integer-seconds"`
@@ -175,12 +184,12 @@ func TestSmokeTestAllParsers(t *testing.T) {
 		},
 	}
 
-	for typename, typetests := range tests {
+	for typeName, typetests := range tests {
 		typetests := typetests
-		t.Run(typename, func(t *testing.T) {
-			for parsername, testinfo := range typetests {
+		t.Run(typeName, func(t *testing.T) {
+			for parserName, testinfo := range typetests {
 				testinfo := testinfo
-				t.Run(parsername, func(t *testing.T) {
+				t.Run(parserName, func(t *testing.T) {
 					parser, err := envconfig.GenerateParser(reflect.TypeOf(testinfo.Object).Elem())
 					if err != nil {
 						t.Fatal(err)
@@ -193,5 +202,19 @@ func TestSmokeTestAllParsers(t *testing.T) {
 				})
 			}
 		})
+	}
+
+	for reflectType, typeHandler := range envconfig.DefaultFieldTypeHandlers() {
+		typeName := reflectType.String()
+		if len(tests[typeName]) == 0 {
+			t.Errorf("no tests for type %q", typeName)
+			continue
+		}
+
+		for parserName := range typeHandler.Parsers {
+			if _, ok := tests[typeName][parserName]; !ok {
+				t.Errorf("no test for type %q parser %q", typeName, parserName)
+			}
+		}
 	}
 }
