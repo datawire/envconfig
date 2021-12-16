@@ -11,6 +11,12 @@ jobs:
         with:
           go-version: '~1.17.0'
       - run: make check
+      - name: Report test coverage to coveralls.io
+        env:
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          make tools/bin/goveralls &&
+          tools/bin/goveralls -coverprofile=envconfig.cov -service=github
   lint:
     runs-on: ubuntu-latest
     steps:
