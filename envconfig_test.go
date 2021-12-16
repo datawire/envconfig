@@ -14,6 +14,10 @@ import (
 	"github.com/datawire/envconfig"
 )
 
+// Note: DO NOT use t.Parallel(); because these tests all make use of
+// the global environment (os.Getenv/os.Setenv), they are not safe to
+// run in parallel.
+
 func TestAbsoluteURL(t *testing.T) {
 	var config struct {
 		U *url.URL `env:"CONFIG_URL,parser=absolute-URL"`
@@ -86,89 +90,108 @@ func TestSmokeTestAllParsers(t *testing.T) {
 	}
 	// This isn't going in to any depth on any of the types; just
 	// checking that the parser and setter don't panic.
-	tests := map[string]testcase{
-		"string.nonempty-string": {
-			Object: &struct {
-				Value string `env:"VALUE,parser=nonempty-string"`
-			}{},
-			EnvVar:   "str",
-			Expected: `&{str}`,
+	tests := map[string]map[string]testcase{
+		"string": {
+			"nonempty-string": {
+				Object: &struct {
+					Value string `env:"VALUE,parser=nonempty-string"`
+				}{},
+				EnvVar:   "str",
+				Expected: `&{str}`,
+			},
+			"possibly-empty-string": {
+				Object: &struct {
+					Value string `env:"VALUE,parser=possibly-empty-string"`
+				}{},
+				EnvVar:   "",
+				Expected: `&{}`,
+			},
+			"logrus.ParseLevel": {
+				Object: &struct {
+					Value string `env:"VALUE,parser=logrus.ParseLevel"`
+				}{},
+				EnvVar:   "info",
+				Expected: `&{info}`,
+			},
 		},
-		"string.possibly-empty-string": {
-			Object: &struct {
-				Value string `env:"VALUE,parser=possibly-empty-string"`
-			}{},
-			EnvVar:   "",
-			Expected: `&{}`,
+		"bool": {
+			"empty/nonempty": {
+				Object: &struct {
+					Value bool `env:"VALUE,parser=empty/nonempty"`
+				}{},
+				EnvVar:   "false",
+				Expected: `&{true}`,
+			},
+			"strconv.ParseBool": {
+				Object: &struct {
+					Value bool `env:"VALUE,parser=strconv.ParseBool"`
+				}{},
+				EnvVar:   "false",
+				Expected: `&{false}`,
+			},
 		},
-		"string.logrus.ParseLevel": {
-			Object: &struct {
-				Value string `env:"VALUE,parser=logrus.ParseLevel"`
-			}{},
-			EnvVar:   "info",
-			Expected: `&{info}`,
+		"int": {
+			"strconv.ParseInt": {
+				Object: &struct {
+					Value int `env:"VALUE,parser=strconv.ParseInt"`
+				}{},
+				EnvVar:   "123",
+				Expected: `&{123}`,
+			},
 		},
-		"bool.empty/nonempty": {
-			Object: &struct {
-				Value bool `env:"VALUE,parser=empty/nonempty"`
-			}{},
-			EnvVar:   "false",
-			Expected: `&{true}`,
+		"int64": {
+			"strconv.ParseInt": {
+				Object: &struct {
+					Value int64 `env:"VALUE,parser=strconv.ParseInt"`
+				}{},
+				EnvVar:   "123",
+				Expected: `&{123}`,
+			},
 		},
-		"bool.strconv.ParseBool": {
-			Object: &struct {
-				Value bool `env:"VALUE,parser=strconv.ParseBool"`
-			}{},
-			EnvVar:   "false",
-			Expected: `&{false}`,
+		"URL": {
+			"absolute-URL": {
+				Object: &struct {
+					Value *url.URL `env:"VALUE,parser=absolute-URL"`
+				}{},
+				EnvVar:   "https://example.com/",
+				Expected: `&{https://example.com/}`,
+			},
 		},
-		"int.strconv.ParseInt": {
-			Object: &struct {
-				Value int `env:"VALUE,parser=strconv.ParseInt"`
-			}{},
-			EnvVar:   "123",
-			Expected: `&{123}`,
-		},
-		"int64.strconv.ParseInt": {
-			Object: &struct {
-				Value int64 `env:"VALUE,parser=strconv.ParseInt"`
-			}{},
-			EnvVar:   "123",
-			Expected: `&{123}`,
-		},
-		"URL.absolute-URL": {
-			Object: &struct {
-				Value *url.URL `env:"VALUE,parser=absolute-URL"`
-			}{},
-			EnvVar:   "https://example.com/",
-			Expected: `&{https://example.com/}`,
-		},
-		"Duration.integer-seconds": {
-			Object: &struct {
-				Value time.Duration `env:"VALUE,parser=integer-seconds"`
-			}{},
-			EnvVar:   "182",
-			Expected: `&{3m2s}`,
-		},
-		"Duration.time.ParseDuration": {
-			Object: &struct {
-				Value time.Duration `env:"VALUE,parser=time.ParseDuration"`
-			}{},
-			EnvVar:   "3m2s",
-			Expected: `&{3m2s}`,
+		"Duration": {
+			"integer-seconds": {
+				Object: &struct {
+					Value time.Duration `env:"VALUE,parser=integer-seconds"`
+				}{},
+				EnvVar:   "182",
+				Expected: `&{3m2s}`,
+			},
+			"time.ParseDuration": {
+				Object: &struct {
+					Value time.Duration `env:"VALUE,parser=time.ParseDuration"`
+				}{},
+				EnvVar:   "3m2s",
+				Expected: `&{3m2s}`,
+			},
 		},
 	}
-	for testname, testinfo := range tests {
-		t.Run(testname, func(t *testing.T) {
-			parser, err := envconfig.GenerateParser(reflect.TypeOf(testinfo.Object).Elem())
-			if err != nil {
-				t.Fatal(err)
+
+	for typename, typetests := range tests {
+		typetests := typetests
+		t.Run(typename, func(t *testing.T) {
+			for parsername, testinfo := range typetests {
+				testinfo := testinfo
+				t.Run(parsername, func(t *testing.T) {
+					parser, err := envconfig.GenerateParser(reflect.TypeOf(testinfo.Object).Elem())
+					if err != nil {
+						t.Fatal(err)
+					}
+					os.Setenv("VALUE", testinfo.EnvVar)
+					warn, fatal := parser.ParseFromEnv(testinfo.Object)
+					assert.Equal(t, len(warn), 0, "There should be no warnings")
+					assert.Equal(t, len(fatal), 0, "There should be no errors")
+					assert.Equal(t, testinfo.Expected, fmt.Sprintf("%v", testinfo.Object))
+				})
 			}
-			os.Setenv("VALUE", testinfo.EnvVar)
-			warn, fatal := parser.ParseFromEnv(testinfo.Object)
-			assert.Equal(t, len(warn), 0, "There should be no warnings")
-			assert.Equal(t, len(fatal), 0, "There should be no errors")
-			assert.Equal(t, testinfo.Expected, fmt.Sprintf("%v", testinfo.Object))
 		})
 	}
 }
