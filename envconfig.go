@@ -79,12 +79,12 @@ func stringPointer(str string) *string {
 	return &str
 }
 
-type fieldTypeHandler struct {
+type FieldTypeHandler struct {
 	Parsers map[string]func(string) (interface{}, error)
 	Setter  func(reflect.Value, interface{})
 }
 
-func (h fieldTypeHandler) parserNames() []string {
+func (h FieldTypeHandler) parserNames() []string {
 	ret := make([]string, 0, len(h.Parsers))
 	for name := range h.Parsers {
 		ret = append(ret, name)
@@ -104,6 +104,8 @@ func GenerateParser(structInfo reflect.Type) (StructParser, error) {
 		return StructParser{}, errors.Errorf("structInfo does not describe a struct, it describes a %s", structInfo.Kind())
 	}
 
+	typeHandlers := DefaultFieldTypeHandlers()
+
 	ret := StructParser{
 		structType:    structInfo,
 		fieldHandlers: make([]func(structValue reflect.Value) (warn, fatal []error), 0, structInfo.NumField()),
@@ -114,7 +116,7 @@ func GenerateParser(structInfo reflect.Type) (StructParser, error) {
 		i := i // capture loop variable
 		var fieldInfo reflect.StructField = structInfo.Field(i)
 
-		typeHandler, typeHandlerOK := envConfigTypes[fieldInfo.Type] // envConfigTypes is set in envconfig_types.go
+		typeHandler, typeHandlerOK := typeHandlers[fieldInfo.Type]
 		if !typeHandlerOK {
 			if fieldInfo.Type.Kind() != reflect.Struct {
 				return StructParser{}, errors.Errorf("struct field %q: unsupported type %s", fieldInfo.Name, fieldInfo.Type)
@@ -212,7 +214,7 @@ func GenerateParser(structInfo reflect.Type) (StructParser, error) {
 	return ret, nil
 }
 
-func generateFieldHandler(i int, tag envTag, typeHandler fieldTypeHandler) func(structValue reflect.Value) (warn, fatal []error) {
+func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(structValue reflect.Value) (warn, fatal []error) {
 	return func(structValue reflect.Value) (warn, fatal []error) {
 		var defValue interface{}
 		if defStr, haveDef := tag.Options["default"]; haveDef {

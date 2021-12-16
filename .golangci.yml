@@ -12,7 +12,6 @@ linters: # which linters to run
     - cyclop
     - errname
     - funlen
-    - gochecknoglobals
     - gocognit
     - lll
     - nestif
