@@ -10,7 +10,6 @@ linters: # which linters to run
     # there isn't a good reason for disabling these, they just don't
     # pass at the moment.
     - cyclop
-    - errname
     - funlen
     - gocognit
     - lll

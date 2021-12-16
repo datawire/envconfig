@@ -20,7 +20,7 @@ func DefaultFieldTypeHandlers() map[reflect.Type]FieldTypeHandler {
 			Parsers: map[string]func(string) (interface{}, error){
 				"nonempty-string": func(str string) (interface{}, error) {
 					if str == "" {
-						return nil, ErrorNotSet
+						return nil, ErrNotSet
 					}
 					return str, nil
 				},

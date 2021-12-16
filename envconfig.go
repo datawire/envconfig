@@ -28,7 +28,7 @@ type envTagOption struct {
 	Validator func(string) error
 }
 
-var ErrorNotSet = errors.New("is not set")
+var ErrNotSet = errors.New("is not set")
 
 func parseTagValue(str string, validOptions []envTagOption) (envTag, error) {
 	parts := strings.Split(str, ",")
@@ -255,7 +255,7 @@ func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(
 		}
 		if val == nil {
 			if defValue == nil {
-				return nil, []error{errors.Wrapf(ErrorNotSet, "invalid %s (aborting)", tag.Name)}
+				return nil, []error{errors.Wrapf(ErrNotSet, "invalid %s (aborting)", tag.Name)}
 			}
 			val = defValue
 		}
