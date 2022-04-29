@@ -24,7 +24,7 @@ This one has several attractive properties:
  - Allows setting different parse-modes ("parser"), without using
    weird types.  It is easy to add new parsers.
  - Supports nested structs, though it is not possible to add a prefix
-   (as https://github.com/sethvargo/go-envconfig allows you to do.
+   (as https://github.com/sethvargo/go-envconfig allows you to do).
  - Tag options are parsed more idiomatically
    (`"env:comma,separated,list"`) than
    https://github.com/kelseyhightower/envconfig.
