@@ -229,6 +229,32 @@ func TestSmokeTestAllParsers(t *testing.T) {
 				Expected: `&{3m2s}`,
 			},
 		},
+		"[]string": {
+			"comma-split-trim": {
+				Object: &struct {
+					Value []string `env:"VALUE,parser=comma-split-trim"`
+				}{},
+				EnvVar:   "first, second,third",
+				Expected: `&{[first second third]}`,
+			},
+			"comma-split-trim-default": {
+				// Use NO_VALUE instead of VALUE here to trigger the default. It's not triggered
+				// unless the env is unset.
+				Object: &struct {
+					Value []string `env:"UNSET_VALUE,parser=comma-split-trim,default=first,second, third"`
+				}{},
+				Expected: `&{[first second third]}`,
+			},
+			"comma-split-trim-empty-override-default": {
+				// Explicitly setting an env to an empty string is different from not having it set at all.
+				// For []string, this means overriding the default with an empty list.
+				Object: &struct {
+					Value []string `env:"VALUE,parser=comma-split-trim,default=first,second, third"`
+				}{},
+				EnvVar:   "",
+				Expected: `&{[]}`,
+			},
+		},
 	}
 
 	for typeName, typetests := range tests {

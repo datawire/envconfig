@@ -87,7 +87,7 @@ whitespace for readability.
 
    ```go
    struct {
-   	NonConfigurableDir   string   `env:",const=true   ,parser=nonempty-string    ,default=/opt/some-dir  "`
+       NonConfigurableDir   string   `env:",const=true   ,parser=nonempty-string    ,default=/opt/some-dir  "`
    }
    ```
 
@@ -99,7 +99,10 @@ whitespace for readability.
    `default=` flag is not present, then this struct member is
    considered to be **required**, and `ParseFromEnv` will return an
    error if the env-var is unset or invalid.  The string passed to the
-   `default=` flag is interpretted according to the `parser=`.
+   `default=` flag is interpreted according to the `parser=`.
+
+   The value following `default=` can contain commas, so this item
+   must be the last one in the `env` tag.
 
  - `defaultFrom`=membername
 
@@ -122,8 +125,8 @@ whitespace for readability.
 
    ```go
    struct {
-   	Timeout_LowPrecendence   time.Duration  `env:"TIMEOUT_S  ,parser=integer-seconds     ,default=5                         "`
-   	Timeout_HighPrecendence  time.Duration  `env:"TIMEOUT    ,parser=time.ParseDuration  ,defaultFrom=TimeoutLowPrecedence  "`
-   	Timeout                  time.Duration  `env:",const     ,parser=time.ParseDuration  ,defaultFrom=TimeoutHighPrecedence "`
+       Timeout_LowPrecendence   time.Duration  `env:"TIMEOUT_S  ,parser=integer-seconds     ,default=5                         "`
+       Timeout_HighPrecendence  time.Duration  `env:"TIMEOUT    ,parser=time.ParseDuration  ,defaultFrom=TimeoutLowPrecedence  "`
+       Timeout                  time.Duration  `env:",const     ,parser=time.ParseDuration  ,defaultFrom=TimeoutHighPrecedence "`
    }
    ```
