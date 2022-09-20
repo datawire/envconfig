@@ -2,6 +2,7 @@ linters: # which linters to run
   enable-all: true
   disable:
     # deprecated
+    - deadcode         # deprecated, replaced by 'unused'
     - exhaustivestruct # deprecated, replaced by 'exhauststruct'
     - golint           # deprecated, replaced by 'revive'
     - ifshort          # deprecated
@@ -9,6 +10,8 @@ linters: # which linters to run
     - maligned         # deprecated, replaced by 'govet fieldalignement'
     - nosnakecase      # deprecated, replaced by 'refive(var-naming)'
     - scopelint        # deprecated, replaced by 'exportloopref'
+    - structcheck      # deprecated, replaced by 'unused'
+    - varcheck         # deprecated, replaced by 'unused'
 
     # correcness
     - paralleltest    # global env prevents parallelism

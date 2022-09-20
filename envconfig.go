@@ -1,5 +1,5 @@
 // Package envconfig is a work-alike of github.com/kelseyhightower/envconfig, but:
-//   - Has more more idiomatic "tag options" (comma separated things)
+//   - Has more idiomatic "tag options" (comma separated things)
 //   - Supports falling back to a default if a provided value is invalid
 //   - Distinguishes between warnings and fatal errors
 //   - Allows setting different parse-modes ("parser"), without using weird types
