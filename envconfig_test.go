@@ -240,8 +240,12 @@ func TestSmokeTestAllParsers(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					t.Setenv("VALUE", testinfo.EnvVar)
-					warn, fatal := parser.ParseFromEnv(testinfo.Object)
+					warn, fatal := parser.ParseUsingLookup(testinfo.Object, func(key string) (string, bool) {
+						if key == "VALUE" {
+							return testinfo.EnvVar, true
+						}
+						return "", false
+					})
 					assert.Equalf(t, testinfo.Warnings, len(warn), "There should be %d warnings", testinfo.Warnings)
 					assert.Equalf(t, testinfo.Errors, len(fatal), "There should be %d errors", testinfo.Errors)
 					assert.Equal(t, testinfo.Expected, fmt.Sprintf("%v", testinfo.Object))

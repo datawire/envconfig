@@ -77,6 +77,10 @@ func stringPointer(str string) *string {
 	return &str
 }
 
+// LookupEnv is a function that performs lookup of an environment variable. It's typically
+// set to os.LookupEnv.
+type LookupEnv func(key string) (string, bool)
+
 // A FieldTypeHandler adds support for a struct member type.
 type FieldTypeHandler struct {
 	Parsers map[string]func(string) (interface{}, error)
@@ -91,10 +95,10 @@ func (h FieldTypeHandler) parserNames() []string {
 	return ret
 }
 
-// A StructParser inspects and parses the os.Environ to set fields in a struct.
+// A StructParser inspects and parses the environment to set fields in a struct.
 type StructParser struct {
 	structType    reflect.Type
-	fieldHandlers []func(structValue reflect.Value) (warn, fatal []error)
+	fieldHandlers []func(structValue reflect.Value, lookup LookupEnv) (warn, fatal []error)
 }
 
 // GenerateParser takes a struct (not a struct pointer) type with `"env:..."` tags on each of its fields, and returns a
@@ -110,7 +114,7 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 
 	ret := StructParser{
 		structType:    structInfo,
-		fieldHandlers: make([]func(structValue reflect.Value) (warn, fatal []error), 0, structInfo.NumField()),
+		fieldHandlers: make([]func(structValue reflect.Value, lookup LookupEnv) (warn, fatal []error), 0, structInfo.NumField()),
 	}
 
 	seen := make(map[string]reflect.Type, structInfo.NumField())
@@ -131,7 +135,7 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 			if err != nil {
 				return StructParser{}, errors.Wrapf(err, "struct field %q", fieldInfo.Name)
 			}
-			ret.fieldHandlers = append(ret.fieldHandlers, func(parentStructValue reflect.Value) (warn, fatal []error) {
+			ret.fieldHandlers = append(ret.fieldHandlers, func(parentStructValue reflect.Value, _ LookupEnv) (warn, fatal []error) {
 				return subhandler.ParseFromEnv(parentStructValue.Field(i).Addr().Interface())
 			})
 			seen[fieldInfo.Name] = fieldInfo.Type
@@ -217,15 +221,15 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 	return ret, nil
 }
 
-func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(structValue reflect.Value) (warn, fatal []error) {
-	return func(structValue reflect.Value) (warn, fatal []error) {
+func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(structValue reflect.Value, lookup LookupEnv) (warn, fatal []error) {
+	return func(structValue reflect.Value, lookup LookupEnv) (warn, fatal []error) {
 		defStr, haveDef := tag.Options["default"]
 		defFromStr, haveDefFrom := tag.Options["defaultFrom"]
 		parser := tag.Options["parser"]
 
 		var val interface{}
 		if tag.Name != "" {
-			if ev, ok := os.LookupEnv(tag.Name); ok {
+			if ev, ok := lookup(tag.Name); ok {
 				var err error
 				if val, err = typeHandler.Parsers[parser](ev); err != nil {
 					if !(haveDef || haveDefFrom) {
@@ -272,6 +276,12 @@ func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(
 // ParseFromEnv populates structPtr from environment variables, returning warnings and fatal errors.  It panics if
 // structPtr is of the wrong type for this parser.
 func (p StructParser) ParseFromEnv(structPtr interface{}) (warn, fatal []error) {
+	return p.ParseUsingLookup(structPtr, os.LookupEnv)
+}
+
+// ParseUsingLookup populates structPtr from values returned by the given LookupEnv function, returning warnings and
+// fatal errors. It panics if structPtr is of the wrong type for this parser.
+func (p StructParser) ParseUsingLookup(structPtr interface{}, lookup LookupEnv) (warn, fatal []error) {
 	structPtrValue := reflect.ValueOf(structPtr)
 	if structPtrValue.Kind() != reflect.Ptr {
 		panic(errors.New("structPtr is not a pointer"))
@@ -282,7 +292,7 @@ func (p StructParser) ParseFromEnv(structPtr interface{}) (warn, fatal []error) 
 	}
 
 	for _, fieldHandler := range p.fieldHandlers {
-		_warn, _fatal := fieldHandler(structValue)
+		_warn, _fatal := fieldHandler(structValue, lookup)
 		warn = append(warn, _warn...)
 		fatal = append(fatal, _fatal...)
 	}
