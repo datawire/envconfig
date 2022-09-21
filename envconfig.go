@@ -219,47 +219,42 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 
 func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(structValue reflect.Value) (warn, fatal []error) {
 	return func(structValue reflect.Value) (warn, fatal []error) {
-		var defValue interface{}
-		if defStr, haveDef := tag.Options["default"]; haveDef {
-			var err error
-			defValue, err = typeHandler.Parsers[tag.Options["parser"]](defStr)
-			if err != nil {
-				panic(err)
-			}
-		} else if defFromStr, haveDefFrom := tag.Options["defaultFrom"]; haveDefFrom {
-			defValue = structValue.FieldByName(defFromStr).Interface()
-		}
+		defStr, haveDef := tag.Options["default"]
+		defFromStr, haveDefFrom := tag.Options["defaultFrom"]
+		parser := tag.Options["parser"]
 
 		var val interface{}
-		var err error
 		if tag.Name != "" {
-			val, err = typeHandler.Parsers[tag.Options["parser"]](os.Getenv(tag.Name))
-			if err != nil {
-				if defValue == nil {
-					// fatal
-					return nil, []error{errors.Wrapf(err, "invalid %s (aborting)", tag.Name)}
-				}
-				// fall back to default
-				val = nil
-				if tag.Name != "" && os.Getenv(tag.Name) != "" {
-					// Only print a warning if the env-var isn't ""; pretend like "" is
-					// unset.  We don't do a str!="" check above, because some parsers
-					// accept an empty string.
-					if defStr, haveDefStr := tag.Options["default"]; haveDefStr {
+			if ev, ok := os.LookupEnv(tag.Name); ok {
+				var err error
+				if val, err = typeHandler.Parsers[parser](ev); err != nil {
+					if !(haveDef || haveDefFrom) {
+						// fatal
+						return nil, []error{errors.Wrapf(err, "invalid %s (aborting)", tag.Name)}
+					}
+					// fall back to default
+					val = nil
+					if haveDef {
 						warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default %q)", tag.Name, defStr))
 					} else {
-						warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default)", tag.Name))
+						warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to defaultFrom %q)", tag.Name, defFromStr))
 					}
+				} else if val == nil {
+					panic(errors.Errorf("should not happen, check the %q %q parser", tag.Name, parser))
 				}
-			} else if val == nil {
-				panic(errors.Errorf("should not happen, check the %q %q parser", tag.Name, tag.Options["parser"]))
 			}
 		}
-		if val == nil {
-			if defValue == nil {
-				return nil, []error{errors.Wrapf(ErrNotSet, "invalid %s (aborting)", tag.Name)}
+		switch {
+		case val != nil:
+		case haveDef:
+			var err error
+			if val, err = typeHandler.Parsers[parser](defStr); err != nil {
+				panic(err)
 			}
-			val = defValue
+		case haveDefFrom:
+			val = structValue.FieldByName(defFromStr).Interface()
+		default:
+			return nil, []error{errors.Wrapf(ErrNotSet, "invalid %s (aborting)", tag.Name)}
 		}
 		if reflect.TypeOf(val) != structValue.Type().Field(i).Type {
 			// This indicates a bug in a parser in envconfig_types.go.  Explicitly (eagerly) check for it
@@ -267,7 +262,7 @@ func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(
 			// `defaultFrom`.  The detection being so far from the source would make things hard to debug.
 			panic(errors.Errorf("this should not happen; envconfig_types.go:%s:%s() returned the wrong type",
 				structValue.Type().Field(i).Type,
-				tag.Options["parser"]))
+				parser))
 		}
 		typeHandler.Setter(structValue.Field(i), val)
 		return warn, nil

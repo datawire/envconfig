@@ -86,6 +86,8 @@ func TestSmokeTestAllParsers(t *testing.T) {
 		Object   interface{}
 		EnvVar   string
 		Expected string
+		Errors   int
+		Warnings int
 	}
 	// This isn't going in to any depth on any of the types; just
 	// checking that the parser and setter don't panic.
@@ -98,12 +100,57 @@ func TestSmokeTestAllParsers(t *testing.T) {
 				EnvVar:   "str",
 				Expected: `&{str}`,
 			},
+			"nonempty-string-unset": {
+				// Error, required value with unset environment variable,
+				Object: &struct {
+					Value string `env:"UNSET_VALUE,parser=nonempty-string"`
+				}{},
+				Errors:   1,
+				Expected: `&{}`,
+			},
+			"nonempty-string-default-set": {
+				// Parser errors on empty string and falls back to default
+				Object: &struct {
+					Value string `env:"VALUE,parser=nonempty-string,default=str"`
+				}{},
+				EnvVar:   "",
+				Expected: `&{str}`,
+				Warnings: 1,
+			},
+			"nonempty-string-default-unset": {
+				// UNSET_VALUE is not present so parser called with default
+				Object: &struct {
+					Value string `env:"UNSET_VALUE,parser=nonempty-string,default=str"`
+				}{},
+				Expected: `&{str}`,
+			},
 			"possibly-empty-string": {
 				Object: &struct {
 					Value string `env:"VALUE,parser=possibly-empty-string"`
 				}{},
 				EnvVar:   "",
 				Expected: `&{}`,
+			},
+			"possibly-empty-string-unset": {
+				Object: &struct {
+					Value string `env:"UNSET_VALUE,parser=possibly-empty-string"`
+				}{},
+				Expected: `&{}`,
+				Errors:   1,
+			},
+			"possibly-empty-string-default-set": {
+				Object: &struct {
+					Value string `env:"VALUE,parser=possibly-empty-string,default=str"`
+				}{},
+				EnvVar:   "",
+				Expected: `&{}`,
+			},
+			"possibly-empty-string-default-unset": {
+				Object: &struct {
+					// Use UNSET_VALUE to reference a non-existent env variable.
+					Value string `env:"UNSET_VALUE,parser=possibly-empty-string,default=str"`
+				}{},
+				Expected: `&{str}`,
 			},
 			"logrus.ParseLevel": {
 				Object: &struct {
@@ -195,8 +242,8 @@ func TestSmokeTestAllParsers(t *testing.T) {
 					}
 					t.Setenv("VALUE", testinfo.EnvVar)
 					warn, fatal := parser.ParseFromEnv(testinfo.Object)
-					assert.Equal(t, len(warn), 0, "There should be no warnings")
-					assert.Equal(t, len(fatal), 0, "There should be no errors")
+					assert.Equalf(t, testinfo.Warnings, len(warn), "There should be %d warnings", testinfo.Warnings)
+					assert.Equalf(t, testinfo.Errors, len(fatal), "There should be %d errors", testinfo.Errors)
 					assert.Equal(t, testinfo.Expected, fmt.Sprintf("%v", testinfo.Object))
 				})
 			}
