@@ -3,6 +3,7 @@ package envconfig_test
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"reflect"
 	"strconv"
 	"testing"
@@ -41,7 +42,7 @@ func TestAbsoluteURL(t *testing.T) {
 			config.U = nil
 			t.Setenv("CONFIG_URL", tc.Input)
 
-			warn, fatal := parser.ParseFromEnv(&config)
+			warn, fatal := parser.ParseFromEnv(&config, os.LookupEnv)
 
 			assert.Equal(t, len(warn), 0, "There should be no warnings")
 			if tc.ExpectError {
@@ -73,7 +74,7 @@ func TestRecursive(t *testing.T) {
 	t.Setenv("PARENT_THING", "foo")
 	t.Setenv("CHILD_THING1", "bar")
 	t.Setenv("CHILD_THING2", "baz")
-	warn, fatal := parser.ParseFromEnv(&config)
+	warn, fatal := parser.ParseFromEnv(&config, os.LookupEnv)
 	assert.Equal(t, len(warn), 0, "There should be no warnings")
 	assert.Equal(t, len(fatal), 0, "There should be no errors")
 	assert.Equal(t, config.ParentThing, "foo")
@@ -240,7 +241,7 @@ func TestSmokeTestAllParsers(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					warn, fatal := parser.ParseUsingLookup(testinfo.Object, func(key string) (string, bool) {
+					warn, fatal := parser.ParseFromEnv(testinfo.Object, func(key string) (string, bool) {
 						if key == "VALUE" {
 							return testinfo.EnvVar, true
 						}

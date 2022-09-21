@@ -6,7 +6,6 @@
 package envconfig
 
 import (
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -77,9 +76,9 @@ func stringPointer(str string) *string {
 	return &str
 }
 
-// LookupEnv is a function that performs lookup of an environment variable. It's typically
+// LookupFunc is a function that performs lookup of an environment variable. It's typically
 // set to os.LookupEnv.
-type LookupEnv func(key string) (string, bool)
+type LookupFunc func(key string) (string, bool)
 
 // A FieldTypeHandler adds support for a struct member type.
 type FieldTypeHandler struct {
@@ -98,7 +97,7 @@ func (h FieldTypeHandler) parserNames() []string {
 // A StructParser inspects and parses the environment to set fields in a struct.
 type StructParser struct {
 	structType    reflect.Type
-	fieldHandlers []func(structValue reflect.Value, lookup LookupEnv) (warn, fatal []error)
+	fieldHandlers []func(structValue reflect.Value, lookup LookupFunc) (warn, fatal []error)
 }
 
 // GenerateParser takes a struct (not a struct pointer) type with `"env:..."` tags on each of its fields, and returns a
@@ -114,7 +113,7 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 
 	ret := StructParser{
 		structType:    structInfo,
-		fieldHandlers: make([]func(structValue reflect.Value, lookup LookupEnv) (warn, fatal []error), 0, structInfo.NumField()),
+		fieldHandlers: make([]func(structValue reflect.Value, lookup LookupFunc) (warn, fatal []error), 0, structInfo.NumField()),
 	}
 
 	seen := make(map[string]reflect.Type, structInfo.NumField())
@@ -135,8 +134,8 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 			if err != nil {
 				return StructParser{}, errors.Wrapf(err, "struct field %q", fieldInfo.Name)
 			}
-			ret.fieldHandlers = append(ret.fieldHandlers, func(parentStructValue reflect.Value, _ LookupEnv) (warn, fatal []error) {
-				return subhandler.ParseFromEnv(parentStructValue.Field(i).Addr().Interface())
+			ret.fieldHandlers = append(ret.fieldHandlers, func(parentStructValue reflect.Value, lookup LookupFunc) (warn, fatal []error) {
+				return subhandler.ParseFromEnv(parentStructValue.Field(i).Addr().Interface(), lookup)
 			})
 			seen[fieldInfo.Name] = fieldInfo.Type
 			continue
@@ -221,8 +220,8 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 	return ret, nil
 }
 
-func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(structValue reflect.Value, lookup LookupEnv) (warn, fatal []error) {
-	return func(structValue reflect.Value, lookup LookupEnv) (warn, fatal []error) {
+func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(structValue reflect.Value, lookup LookupFunc) (warn, fatal []error) {
+	return func(structValue reflect.Value, lookup LookupFunc) (warn, fatal []error) {
 		defStr, haveDef := tag.Options["default"]
 		defFromStr, haveDefFrom := tag.Options["defaultFrom"]
 		parser := tag.Options["parser"]
@@ -273,15 +272,9 @@ func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(
 	}
 }
 
-// ParseFromEnv populates structPtr from environment variables, returning warnings and fatal errors.  It panics if
-// structPtr is of the wrong type for this parser.
-func (p StructParser) ParseFromEnv(structPtr interface{}) (warn, fatal []error) {
-	return p.ParseUsingLookup(structPtr, os.LookupEnv)
-}
-
-// ParseUsingLookup populates structPtr from values returned by the given LookupEnv function, returning warnings and
+// ParseFromEnv populates structPtr from values returned by the given LookupFunc function, returning warnings and
 // fatal errors. It panics if structPtr is of the wrong type for this parser.
-func (p StructParser) ParseUsingLookup(structPtr interface{}, lookup LookupEnv) (warn, fatal []error) {
+func (p StructParser) ParseFromEnv(structPtr interface{}, lookup LookupFunc) (warn, fatal []error) {
 	structPtrValue := reflect.ValueOf(structPtr)
 	if structPtrValue.Kind() != reflect.Ptr {
 		panic(errors.New("structPtr is not a pointer"))
