@@ -119,5 +119,18 @@ func DefaultFieldTypeHandlers() map[reflect.Type]FieldTypeHandler {
 			},
 			Setter: func(dst reflect.Value, src interface{}) { dst.SetInt(int64(src.(time.Duration))) },
 		},
+		// []string
+		reflect.TypeOf([]string{}): {
+			Parsers: map[string]func(string) (interface{}, error){
+				"comma-split-trim": func(str string) (interface{}, error) {
+					ss := strings.Split(str, ",")
+					for i, s := range ss {
+						ss[i] = strings.TrimSpace(s)
+					}
+					return ss, nil
+				},
+			},
+			Setter: func(dst reflect.Value, src interface{}) { dst.Set(reflect.ValueOf(src)) },
+		},
 	}
 }

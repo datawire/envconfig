@@ -99,7 +99,10 @@ whitespace for readability.
    `default=` flag is not present, then this struct member is
    considered to be **required**, and `ParseFromEnv` will return an
    error if the env-var is unset or invalid.  The string passed to the
-   `default=` flag is interpretted according to the `parser=`.
+   `default=` flag is interpreted according to the `parser=`.
+
+   The value following `default=` can contain commas, so this item
+   must be the last one in the `env` tag.
 
  - `defaultFrom`=membername
 

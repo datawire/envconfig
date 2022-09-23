@@ -7,6 +7,7 @@ package envconfig
 
 import (
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -27,8 +28,17 @@ type envTagOption struct {
 // ErrNotSet is the error that gets wrapped when a "required" env-var is not set.
 var ErrNotSet = errors.New("is not set")
 
+var tagDefaultRx = regexp.MustCompile(`^(.+),\s*(default=.*)$`)
+
 func parseTagValue(str string, validOptions []envTagOption) (envTag, error) {
-	parts := strings.Split(str, ",")
+	var parts []string
+	// Split string on comma, but leave everything after default= intact
+	if m := tagDefaultRx.FindStringSubmatch(str); m != nil {
+		parts = strings.Split(m[1], ",")
+		parts = append(parts, m[2])
+	} else {
+		parts = strings.Split(str, ",")
+	}
 	ret := envTag{
 		Name:    strings.TrimSpace(parts[0]),
 		Options: make(map[string]string, len(parts)-1),
