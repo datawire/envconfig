@@ -87,7 +87,7 @@ whitespace for readability.
 
    ```go
    struct {
-       NonConfigurableDir   string   `env:",const=true   ,parser=nonempty-string    ,default=/opt/some-dir  "`
+   	NonConfigurableDir   string   `env:",const=true   ,parser=nonempty-string    ,default=/opt/some-dir  "`
    }
    ```
 
@@ -125,8 +125,8 @@ whitespace for readability.
 
    ```go
    struct {
-       Timeout_LowPrecendence   time.Duration  `env:"TIMEOUT_S  ,parser=integer-seconds     ,default=5                         "`
-       Timeout_HighPrecendence  time.Duration  `env:"TIMEOUT    ,parser=time.ParseDuration  ,defaultFrom=TimeoutLowPrecedence  "`
-       Timeout                  time.Duration  `env:",const     ,parser=time.ParseDuration  ,defaultFrom=TimeoutHighPrecedence "`
+   	Timeout_LowPrecendence   time.Duration  `env:"TIMEOUT_S  ,parser=integer-seconds     ,default=5                         "`
+   	Timeout_HighPrecendence  time.Duration  `env:"TIMEOUT    ,parser=time.ParseDuration  ,defaultFrom=TimeoutLowPrecedence  "`
+   	Timeout                  time.Duration  `env:",const     ,parser=time.ParseDuration  ,defaultFrom=TimeoutHighPrecedence "`
    }
    ```
