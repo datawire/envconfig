@@ -241,7 +241,7 @@ func TestSmokeTestAllParsers(t *testing.T) {
 				// Use NO_VALUE instead of VALUE here to trigger the default. It's not triggered
 				// unless the env is unset.
 				Object: &struct {
-					Value []string `env:"UNSET_VALUE,parser=comma-split-trim,default=first,second, third"`
+					Value []string `env:"UNSET_VALUE,parser=comma-split-trim, default=first,second, third"`
 				}{},
 				Expected: `&{[first second third]}`,
 			},

@@ -28,7 +28,7 @@ type envTagOption struct {
 // ErrNotSet is the error that gets wrapped when a "required" env-var is not set.
 var ErrNotSet = errors.New("is not set")
 
-var tagDefaultRx = regexp.MustCompile(`^(.+),\w*(default=.*)$`)
+var tagDefaultRx = regexp.MustCompile(`^(.+),\s*(default=.*)$`)
 
 func parseTagValue(str string, validOptions []envTagOption) (envTag, error) {
 	var parts []string
