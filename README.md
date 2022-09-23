@@ -33,6 +33,7 @@ This one has several attractive properties:
 
 ```go
 import (
+	"os"
 	"time"
 
 	"github.com/datawire/envconfig"
@@ -51,7 +52,7 @@ func ConfigFromEnv() (cfg Config, warn []error, fatal []error) {
 		// runtime error.
 		panic(err)
 	}
-	warn, fatal = parser.ParseFromEnv(&cfg)
+	warn, fatal = parser.ParseFromEnv(&cfg, os.LookupEnv)
 	return
 }
 ```
