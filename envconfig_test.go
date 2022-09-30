@@ -212,6 +212,20 @@ func TestSmokeTestAllParsers(t *testing.T) {
 				EnvVar:   "https://example.com/",
 				Expected: `&{https://example.com/}`,
 			},
+			"possibly-empty-absolute-URL": {
+				Object: &struct {
+					Value *url.URL `env:"VALUE,parser=possibly-empty-absolute-URL"`
+				}{},
+				EnvVar:   "https://example.com/",
+				Expected: `&{https://example.com/}`,
+			},
+			"possibly-empty-absolute-URL-empty": {
+				Object: &struct {
+					Value *url.URL `env:"VALUE,parser=possibly-empty-absolute-URL"`
+				}{},
+				EnvVar:   "",
+				Expected: `&{<nil>}`,
+			},
 		},
 		"time.Duration": {
 			"integer-seconds": {
