@@ -14,7 +14,7 @@ import (
 func parseURL(str string) (interface{}, error) {
 	u, err := url.Parse(str)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("unable to parse URL %q: %v", str, err)
 	}
 	isURL := strings.HasPrefix(u.String(), u.Scheme+"://") // as opposed to being a URN
 	if !u.IsAbs() || !isURL {
