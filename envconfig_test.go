@@ -66,6 +66,22 @@ func TestAbsoluteURL(t *testing.T) {
 	}
 }
 
+func TestIgnoredField(t *testing.T) {
+	var config struct {
+		Value   string `env:"VALUE,parser=nonempty-string"`
+		ignored func(string) (string, bool)
+	}
+	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := testEnv{"VALUE": "value"}
+	warn, fatal := parser.ParseFromEnv(&config, env.lookup)
+	assert.Equal(t, len(warn), 0, "There should be no warnings")
+	assert.Equal(t, len(fatal), 0, "There should be no errors")
+	assert.Equal(t, config.Value, "value")
+}
+
 func TestExpandedEnv(t *testing.T) {
 	var config struct {
 		Value string `env:"EXPANDED_VALUE,parser=nonempty-string"`
