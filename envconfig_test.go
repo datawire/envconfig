@@ -86,6 +86,7 @@ func TestSmokeTestAllParsers(t *testing.T) {
 	type testcase struct {
 		Object   interface{}
 		EnvVar   string
+		Format   string
 		Expected string
 		Errors   int
 		Warnings int
@@ -249,7 +250,8 @@ func TestSmokeTestAllParsers(t *testing.T) {
 					Value []string `env:"VALUE,parser=comma-split-trim"`
 				}{},
 				EnvVar:   "first, second,third",
-				Expected: `&{[first second third]}`,
+				Format:   "%q",
+				Expected: `&{["first" "second" "third"]}`,
 			},
 			"comma-split-trim-default": {
 				// Use NO_VALUE instead of VALUE here to trigger the default. It's not triggered
@@ -257,7 +259,18 @@ func TestSmokeTestAllParsers(t *testing.T) {
 				Object: &struct {
 					Value []string `env:"UNSET_VALUE,parser=comma-split-trim, default=first,second, third"`
 				}{},
-				Expected: `&{[first second third]}`,
+				Format:   "%q",
+				Expected: `&{["first" "second" "third"]}`,
+			},
+			"comma-split-trim-empty-empty": {
+				// Explicitly setting an env to an empty string is different from not having it set at all.
+				// For []string, this means overriding the default with an empty list.
+				Object: &struct {
+					Value []string `env:"VALUE,parser=comma-split-trim"`
+				}{},
+				EnvVar:   "",
+				Format:   "%q",
+				Expected: `&{[]}`,
 			},
 			"comma-split-trim-empty-override-default": {
 				// Explicitly setting an env to an empty string is different from not having it set at all.
@@ -266,6 +279,7 @@ func TestSmokeTestAllParsers(t *testing.T) {
 					Value []string `env:"VALUE,parser=comma-split-trim,default=first,second, third"`
 				}{},
 				EnvVar:   "",
+				Format:   "%q",
 				Expected: `&{[]}`,
 			},
 		},
@@ -289,7 +303,11 @@ func TestSmokeTestAllParsers(t *testing.T) {
 					})
 					assert.Equalf(t, testinfo.Warnings, len(warn), "There should be %d warnings", testinfo.Warnings)
 					assert.Equalf(t, testinfo.Errors, len(fatal), "There should be %d errors", testinfo.Errors)
-					assert.Equal(t, testinfo.Expected, fmt.Sprintf("%v", testinfo.Object))
+					format := testinfo.Format
+					if format == "" {
+						format = "%v"
+					}
+					assert.Equal(t, testinfo.Expected, fmt.Sprintf(format, testinfo.Object))
 				})
 			}
 		})

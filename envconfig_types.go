@@ -131,6 +131,11 @@ func DefaultFieldTypeHandlers() map[reflect.Type]FieldTypeHandler {
 		reflect.TypeOf([]string{}): {
 			Parsers: map[string]func(string) (interface{}, error){
 				"comma-split-trim": func(str string) (interface{}, error) {
+					// We don't want strings.Split to create a one element slice for an empty string so
+					// a special check is needed for that here.
+					if str == "" {
+						return []string{}, nil
+					}
 					ss := strings.Split(str, ",")
 					for i, s := range ss {
 						ss[i] = strings.TrimSpace(s)
