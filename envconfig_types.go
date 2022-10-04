@@ -11,6 +11,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func parseURL(str string) (interface{}, error) {
+	u, err := url.Parse(str)
+	if err != nil {
+		return nil, errors.Errorf("unable to parse URL %q: %v", str, err)
+	}
+	isURL := strings.HasPrefix(u.String(), u.Scheme+"://") // as opposed to being a URN
+	if !u.IsAbs() || !isURL {
+		// Why do we need to check .IsAbs() _and_ isURL?  Because despite the
+		// name, the `net/url` package is used for any URI; which means it can
+		// be either a URL or a URN.  We need it to specifically be a URL, and
+		// to reject a URN.
+		//
+		// Otherwise, "host:port", would parse as an absolute opaque URN, with
+		// "scheme=host" and "opaque=port".
+		return nil, errors.New("not an absolute URL")
+	}
+	return u, nil
+}
+
 // DefaultFieldTypeHandlers returns a map of the struct field type handlers that are used if a nil
 // map is passed to GenerateParser.  A new map is allocated on each call; mutating the map will not
 // change the defaults.
@@ -83,23 +102,12 @@ func DefaultFieldTypeHandlers() map[reflect.Type]FieldTypeHandler {
 		// *url.URL
 		reflect.TypeOf((*url.URL)(nil)): {
 			Parsers: map[string]func(string) (interface{}, error){
-				"absolute-URL": func(str string) (interface{}, error) {
-					u, err := url.Parse(str)
-					if err != nil {
-						return nil, err
+				"absolute-URL": parseURL,
+				"possibly-empty-absolute-URL": func(str string) (interface{}, error) {
+					if str == "" {
+						return nil, nil
 					}
-					isURL := strings.HasPrefix(u.String(), u.Scheme+"://") // as opposed to being a URN
-					if !u.IsAbs() || !isURL {
-						// Why do we need to check .IsAbs() _and_ isURL?  Because despite the
-						// name, the `net/url` package is used for any URI; which means it can
-						// be either a URL or a URN.  We need it to specifically be a URL, and
-						// to reject a URN.
-						//
-						// Otherwise, "host:port", would parse as an absolute opaque URN, with
-						// "scheme=host" and "opaque=port".
-						return nil, errors.New("not an absolute URL")
-					}
-					return u, nil
+					return parseURL(str)
 				},
 			},
 			Setter: func(dst reflect.Value, src interface{}) { dst.Set(reflect.ValueOf(src.(*url.URL))) },
