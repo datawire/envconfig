@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/datawire/envconfig"
 )
@@ -28,7 +29,6 @@ func TestAbsoluteURL(t *testing.T) {
 	var config struct {
 		U *url.URL `env:"CONFIG_URL,parser=absolute-URL"`
 	}
-	env := testEnv{}
 	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func TestAbsoluteURL(t *testing.T) {
 		tc := tc // capture loop variable
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			config.U = nil
-			env["CONFIG_URL"] = tc.Input
+			env := testEnv{"CONFIG_URL": tc.Input}
 
 			warn, fatal := parser.ParseFromEnv(&config, env.lookup)
 
@@ -64,6 +64,41 @@ func TestAbsoluteURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExpandedEnv(t *testing.T) {
+	var config struct {
+		Value *url.URL `env:"EXPANDED_VALUE,parser=absolute-URL"`
+	}
+	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := testEnv{
+		"VALUE":          "example.com",
+		"EXPANDED_VALUE": "http://${VALUE}/path",
+	}
+	warn, fatal := parser.ParseFromEnv(&config, env.lookup)
+	assert.Equal(t, len(warn), 0, "There should be no warnings")
+	assert.Equal(t, len(fatal), 0, "There should be no errors")
+	require.NotNil(t, config.Value)
+	assert.Equal(t, config.Value.String(), "http://example.com/path")
+}
+
+func TestExpandedDefault(t *testing.T) {
+	var config struct {
+		Value *url.URL `env:"EXPANDED_VALUE,parser=absolute-URL,default=http://${VALUE}/path"`
+	}
+	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := testEnv{"VALUE": "example.com"}
+	warn, fatal := parser.ParseFromEnv(&config, env.lookup)
+	assert.Equal(t, len(warn), 0, "There should be no warnings")
+	assert.Equal(t, len(fatal), 0, "There should be no errors")
+	require.NotNil(t, config.Value)
+	assert.Equal(t, config.Value.String(), "http://example.com/path")
 }
 
 func TestRecursive(t *testing.T) {
