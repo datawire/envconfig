@@ -39,7 +39,6 @@ func DefaultFieldTypeHandlers() map[reflect.Type]FieldTypeHandler {
 	//nolint:unparam,wrapcheck // These are all implemnting the same interface; can't remove any
 	// params.  The caller parser will wrap errors.
 	return map[reflect.Type]FieldTypeHandler{
-
 		// string
 		reflect.TypeOf(""): {
 			Parsers: map[string]func(string) (interface{}, error){

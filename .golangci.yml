@@ -2,25 +2,38 @@ linters: # which linters to run
   enable-all: true
   disable:
     # deprecated
-    - golint     # deprecated, replaced by 'revive'
-    - interfacer # deprecated
-    - maligned   # deprecated, replaced by 'govet fieldalignement'
-    - scopelint  # deprecated, replaced by 'exportloopref'
+    - deadcode         # deprecated, replaced by 'unused'
+    - exhaustivestruct # deprecated, replaced by 'exhauststruct'
+    - golint           # deprecated, replaced by 'revive'
+    - ifshort          # deprecated
+    - interfacer       # deprecated
+    - maligned         # deprecated, replaced by 'govet fieldalignement'
+    - nosnakecase      # deprecated, replaced by 'refive(var-naming)'
+    - scopelint        # deprecated, replaced by 'exportloopref'
+    - structcheck      # deprecated, replaced by 'unused'
+    - varcheck         # deprecated, replaced by 'unused'
 
     # correcness
-    - paralleltest # global env prevents parallelism
+    - paralleltest    # global env prevents parallelism
+    - forcetypeassert # if the assertion is wrong, that's a programming error
 
     # complexity
-    - cyclop   # complexity: reflection and parsing are complicated, deal with it
-    - funlen   # complexity: reflection and parsing are complicated, deal with it
-    - gocognit # complexity: reflection and parsing are complicated, deal with it
-    - nestif   # complexity: reflection and parsing are complicated, deal with it
+    - cyclop         # complexity: reflection and parsing are complicated, deal with it
+    - funlen         # complexity: reflection and parsing are complicated, deal with it
+    - gocognit       # complexity: reflection and parsing are complicated, deal with it
+    - nestif         # complexity: reflection and parsing are complicated, deal with it
+    - nonamedreturns # complexity: sometimes these increase clarity
 
     # style
     - lll      # style: some lines are long and wrapping would make it worse
     - nlreturn # style: overly nit-picky whitespace linter
     - wsl      # style: overly nit-picky whitespace linter
 linters-settings: # what settings to run those linters with
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/datawire)
   goimports:
     # A comma-separated list
     local-prefixes: github.com/datawire
