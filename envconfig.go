@@ -143,6 +143,11 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 		i := i // capture loop variable
 		var fieldInfo reflect.StructField = structInfo.Field(i)
 
+		if fieldInfo.Tag.Get("env") == "" && fieldInfo.Type.Kind() != reflect.Struct {
+			// A field is ignored unless it has an "env" tag or is a struct
+			continue
+		}
+
 		typeHandler, typeHandlerOK := typeHandlers[fieldInfo.Type]
 		if !typeHandlerOK {
 			if fieldInfo.Type.Kind() != reflect.Struct {
