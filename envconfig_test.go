@@ -68,7 +68,7 @@ func TestAbsoluteURL(t *testing.T) {
 
 func TestExpandedEnv(t *testing.T) {
 	var config struct {
-		Value *url.URL `env:"EXPANDED_VALUE,parser=absolute-URL"`
+		Value string `env:"EXPANDED_VALUE,parser=nonempty-string"`
 	}
 	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
 	if err != nil {
@@ -82,7 +82,7 @@ func TestExpandedEnv(t *testing.T) {
 	assert.Equal(t, len(warn), 0, "There should be no warnings")
 	assert.Equal(t, len(fatal), 0, "There should be no errors")
 	require.NotNil(t, config.Value)
-	assert.Equal(t, config.Value.String(), "http://example.com/path")
+	assert.Equal(t, config.Value, "http://${VALUE}/path")
 }
 
 func TestExpandedDefault(t *testing.T) {
