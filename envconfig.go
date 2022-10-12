@@ -6,6 +6,7 @@
 package envconfig
 
 import (
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -102,6 +103,17 @@ func (h FieldTypeHandler) parserNames() []string {
 		ret = append(ret, name)
 	}
 	return ret
+}
+
+// expand uses os.Expand and the given lookupFunc to expand ${xxx} constructs
+// in the given value.
+func expand(value string, lookupFunc func(string) (string, bool)) string {
+	return os.Expand(value, func(key string) string {
+		if v, ok := lookupFunc(key); ok {
+			return v
+		}
+		return ""
+	})
 }
 
 // A StructParser inspects and parses the environment to set fields in a struct.
@@ -209,7 +221,7 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 			return StructParser{}, errors.Errorf("struct field %q: type %s requires a \"parser\" setting (valid parsers are %v)", fieldInfo.Name, fieldInfo.Type, typeHandler.parserNames())
 		}
 
-		_, haveDef := tag.Options["default"]
+		dflt, haveDef := tag.Options["default"]
 		_, haveDefFrom := tag.Options["defaultFrom"]
 		// validate "default" vs "defaultFrom"
 		if haveDef && haveDefFrom {
@@ -217,9 +229,13 @@ func GenerateParser(structInfo reflect.Type, typeHandlers map[reflect.Type]Field
 		}
 		// validate "default" vs "parser"
 		if haveDef {
-			parserFn := typeHandler.Parsers[tag.Options["parser"]]
-			if _, err := parserFn(tag.Options["default"]); err != nil {
-				return StructParser{}, errors.Wrapf(err, "struct field %q: invalid default", fieldInfo.Name)
+			// Check that the expanded value is unchanged before validating, because a default that contains
+			// expanded variables cannot be validated.
+			if expand(dflt, func(string) (string, bool) { return "X", true }) == dflt {
+				parserFn := typeHandler.Parsers[tag.Options["parser"]]
+				if _, err := parserFn(dflt); err != nil {
+					return StructParser{}, errors.Wrapf(err, "struct field %q: invalid default", fieldInfo.Name)
+				}
 			}
 		}
 
@@ -243,6 +259,7 @@ func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(
 				val, err = typeHandler.Parsers[parser](ev)
 			}
 		}
+		field := structValue.Type().Field(i)
 		defStr, haveDef := tag.Options["default"]
 		defFromStr, haveDefFrom := tag.Options["defaultFrom"]
 		switch {
@@ -250,20 +267,20 @@ func generateFieldHandler(i int, tag envTag, typeHandler FieldTypeHandler) func(
 			// Never use defaults when the value was found and successfully parsed
 		case haveDef:
 			if err != nil {
-				warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default %q)", tag.Name, defStr))
+				warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to default %q)", field.Name, defStr))
 			}
-			if val, err = typeHandler.Parsers[parser](defStr); err != nil {
-				panic(err)
+			if val, err = typeHandler.Parsers[parser](expand(defStr, lookup)); err != nil {
+				return nil, []error{errors.Wrapf(err, "struct field %q: invalid default", field.Name)}
 			}
 		case haveDefFrom:
 			if err != nil {
-				warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to defaultFrom %q)", tag.Name, defFromStr))
+				warn = append(warn, errors.Wrapf(err, "invalid %s (falling back to defaultFrom %q)", field.Name, defFromStr))
 			}
 			val = structValue.FieldByName(defFromStr).Interface()
 		default:
-			return nil, []error{errors.Wrapf(ErrNotSet, "invalid %s (aborting)", tag.Name)}
+			return nil, []error{errors.Wrapf(ErrNotSet, "invalid %s (aborting)", field.Name)}
 		}
-		fieldType := structValue.Type().Field(i).Type
+		fieldType := field.Type
 		if rt := reflect.TypeOf(val); rt != nil {
 			if rt != fieldType {
 				// This indicates a bug in a parser in envconfig_types.go.  Explicitly (eagerly) check for it

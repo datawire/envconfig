@@ -3,16 +3,23 @@ package envconfig_test
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/datawire/envconfig"
 )
+
+type testEnv map[string]string
+
+func (e testEnv) lookup(key string) (string, bool) {
+	v, ok := e[key]
+	return v, ok
+}
 
 // Note: DO NOT use t.Parallel(); because these tests all make use of
 // the global environment (os.Getenv/os.Setenv), they are not safe to
@@ -40,9 +47,9 @@ func TestAbsoluteURL(t *testing.T) {
 		tc := tc // capture loop variable
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			config.U = nil
-			t.Setenv("CONFIG_URL", tc.Input)
+			env := testEnv{"CONFIG_URL": tc.Input}
 
-			warn, fatal := parser.ParseFromEnv(&config, os.LookupEnv)
+			warn, fatal := parser.ParseFromEnv(&config, env.lookup)
 
 			assert.Equal(t, len(warn), 0, "There should be no warnings")
 			if tc.ExpectError {
@@ -59,6 +66,41 @@ func TestAbsoluteURL(t *testing.T) {
 	}
 }
 
+func TestExpandedEnv(t *testing.T) {
+	var config struct {
+		Value string `env:"EXPANDED_VALUE,parser=nonempty-string"`
+	}
+	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := testEnv{
+		"VALUE":          "example.com",
+		"EXPANDED_VALUE": "http://${VALUE}/path",
+	}
+	warn, fatal := parser.ParseFromEnv(&config, env.lookup)
+	assert.Equal(t, len(warn), 0, "There should be no warnings")
+	assert.Equal(t, len(fatal), 0, "There should be no errors")
+	require.NotNil(t, config.Value)
+	assert.Equal(t, config.Value, "http://${VALUE}/path")
+}
+
+func TestExpandedDefault(t *testing.T) {
+	var config struct {
+		Value *url.URL `env:"EXPANDED_VALUE,parser=absolute-URL,default=http://${VALUE}/path"`
+	}
+	parser, err := envconfig.GenerateParser(reflect.TypeOf(config), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := testEnv{"VALUE": "example.com"}
+	warn, fatal := parser.ParseFromEnv(&config, env.lookup)
+	assert.Equal(t, len(warn), 0, "There should be no warnings")
+	assert.Equal(t, len(fatal), 0, "There should be no errors")
+	require.NotNil(t, config.Value)
+	assert.Equal(t, config.Value.String(), "http://example.com/path")
+}
+
 func TestRecursive(t *testing.T) {
 	var config struct {
 		ParentThing string `env:"PARENT_THING,parser=nonempty-string"`
@@ -71,10 +113,12 @@ func TestRecursive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("PARENT_THING", "foo")
-	t.Setenv("CHILD_THING1", "bar")
-	t.Setenv("CHILD_THING2", "baz")
-	warn, fatal := parser.ParseFromEnv(&config, os.LookupEnv)
+	env := testEnv{
+		"PARENT_THING": "foo",
+		"CHILD_THING1": "bar",
+		"CHILD_THING2": "baz",
+	}
+	warn, fatal := parser.ParseFromEnv(&config, env.lookup)
 	assert.Equal(t, len(warn), 0, "There should be no warnings")
 	assert.Equal(t, len(fatal), 0, "There should be no errors")
 	assert.Equal(t, config.ParentThing, "foo")
@@ -291,16 +335,12 @@ func TestSmokeTestAllParsers(t *testing.T) {
 			for parserName, testinfo := range typetests {
 				testinfo := testinfo
 				t.Run(parserName, func(t *testing.T) {
+					env := testEnv{"VALUE": testinfo.EnvVar}
 					parser, err := envconfig.GenerateParser(reflect.TypeOf(testinfo.Object).Elem(), nil)
 					if err != nil {
 						t.Fatal(err)
 					}
-					warn, fatal := parser.ParseFromEnv(testinfo.Object, func(key string) (string, bool) {
-						if key == "VALUE" {
-							return testinfo.EnvVar, true
-						}
-						return "", false
-					})
+					warn, fatal := parser.ParseFromEnv(testinfo.Object, env.lookup)
 					assert.Equalf(t, testinfo.Warnings, len(warn), "There should be %d warnings", testinfo.Warnings)
 					assert.Equalf(t, testinfo.Errors, len(fatal), "There should be %d errors", testinfo.Errors)
 					format := testinfo.Format
